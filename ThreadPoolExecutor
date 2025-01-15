@@ -1,0 +1,157 @@
+1. Main Application Class:
+Ensure your Spring Boot application is set up correctly.
+
+
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class FutureExampleApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(FutureExampleApplication.class, args);
+    }
+}
+2. Configure ThreadPoolExecutor:
+Now, define a configuration class where we configure a ThreadPoolExecutor. This allows more detailed control over the thread pool, such as setting the core pool size, maximum pool size, and other properties.
+
+java
+Copy code
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+@Configuration
+public class ExecutorConfig {
+
+    @Bean
+    public ThreadPoolExecutor threadPoolExecutor() {
+        return new ThreadPoolExecutor(
+                3,  // core pool size
+                3,  // maximum pool size (set to 3 for simplicity, you can adjust)
+                60, // time to wait before closing idle threads
+                TimeUnit.SECONDS,
+                new java.util.concurrent.LinkedBlockingQueue<>(),
+                new ThreadPoolExecutor.CallerRunsPolicy() // RejectedExecutionHandler
+        );
+    }
+}
+Core pool size: The number of threads to keep in the pool, even if they are idle. Here, it's set to 3, meaning three threads will always be available to handle tasks.
+Maximum pool size: The maximum number of threads that can be in the pool at any time.
+Keep-alive time: The time excess idle threads will wait before terminating.
+Work queue: The queue used by the threads to hold tasks.
+CallerRunsPolicy: If the queue is full and all threads are busy, the task will be executed in the calling thread instead of being rejected.
+3. Service to Handle Tasks:
+Create a TaskService that will run three Runnable tasks using the configured ThreadPoolExecutor.
+
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+
+@Service
+public class TaskService {
+
+    private final ThreadPoolExecutor threadPoolExecutor;
+
+    @Autowired
+    public TaskService(ThreadPoolExecutor threadPoolExecutor) {
+        this.threadPoolExecutor = threadPoolExecutor;
+    }
+
+    public Future<?> runRunnableTask(int taskId) {
+        return CompletableFuture.runAsync(() -> {
+            System.out.println("Runnable task " + taskId + " is running...");
+        }, threadPoolExecutor);
+    }
+}
+runRunnableTask(): This method submits a Runnable task to the ThreadPoolExecutor. It returns a Future<?> to track the task's completion.
+4. Use the Service in the Application:
+Now, create a CommandLineRunner component to submit and wait for three Runnable tasks.
+
+java
+Copy code
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.Future;
+
+@Component
+public class AsyncRunner implements CommandLineRunner {
+
+    @Autowired
+    private TaskService taskService;
+
+    @Override
+    public void run(String... args) throws Exception {
+        // Run three tasks asynchronously
+        Future<?> task1Future = taskService.runRunnableTask(1);
+        Future<?> task2Future = taskService.runRunnableTask(2);
+        Future<?> task3Future = taskService.runRunnableTask(3);
+
+        try {
+            // Wait for each task to complete
+            task1Future.get(); // Blocks until task 1 completes
+            System.out.println("Runnable task 1 completed");
+
+            task2Future.get(); // Blocks until task 2 completes
+            System.out.println("Runnable task 2 completed");
+
+            task3Future.get(); // Blocks until task 3 completes
+            System.out.println("Runnable task 3 completed");
+
+        } catch (Exception e) {
+            System.err.println("Exception occurred: " + e.getMessage());
+        }
+    }
+}
+5. Graceful Shutdown:
+To ensure that the ThreadPoolExecutor is shut down properly when the application stops, you can use @PreDestroy or define a shutdown hook in the service.
+
+java
+Copy code
+import javax.annotation.PreDestroy;
+import org.springframework.stereotype.Service;
+
+@Service
+public class TaskService {
+
+    private final ThreadPoolExecutor threadPoolExecutor;
+
+    @Autowired
+    public TaskService(ThreadPoolExecutor threadPoolExecutor) {
+        this.threadPoolExecutor = threadPoolExecutor;
+    }
+
+    @PreDestroy
+    public void shutdownExecutor() {
+        if (threadPoolExecutor != null) {
+            threadPoolExecutor.shutdown();
+            System.out.println("ThreadPoolExecutor is shutting down...");
+        }
+    }
+
+    // Methods to run tasks (same as above)
+}
+The @PreDestroy annotation ensures that the ThreadPoolExecutor is gracefully shut down when the application stops, freeing up resources.
+6. Kubernetes Considerations:
+Make sure to define a suitable terminationGracePeriodSeconds in your Kubernetes deployment.yaml file to allow enough time for the application to shut down gracefully before the pod is terminated.
+
+yaml
+Copy code
+spec:
+  terminationGracePeriodSeconds: 60  # Allow 60 seconds for graceful shutdown
+Full Example Recap:
+ThreadPoolExecutor Configuration: The ExecutorConfig class provides a custom ThreadPoolExecutor with a fixed pool size and other properties.
+TaskService: This service handles the three Runnable tasks submitted to the ThreadPoolExecutor.
+AsyncRunner: This component submits the three tasks and waits for their completion using Future<?>.
+Graceful Shutdown: The @PreDestroy annotation ensures the ThreadPoolExecutor is properly shut down when the application stops.
+Summary:
+By using ThreadPoolExecutor, you have more control over how threads are managed, including configuring the core pool size, maximum pool size, and the behavior when tasks are rejected. The tasks are submitted to the executor, and you can track their completion using Future<?>. The application will handle graceful shutdown automatically, and Kubernetes will provide a termination grace period for pod termination.
+
