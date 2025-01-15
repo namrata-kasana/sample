@@ -1,0 +1,32 @@
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+public class Main {
+    public static void main(String[] args) {
+        // Create a single-thread executor
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        // Define tasks
+        Runnable task1 = () -> System.out.println("Task 1 is running...");
+        Runnable task2 = () -> System.out.println("Task 2 is running...");
+        Runnable task3 = () -> System.out.println("Task 3 is running...");
+
+        try {
+            // Submit and wait for each task sequentially
+            Future<?> future1 = executor.submit(task1);
+            future1.get(); // Wait for task 1 to complete
+
+            Future<?> future2 = executor.submit(task2);
+            future2.get(); // Wait for task 2 to complete
+
+            Future<?> future3 = executor.submit(task3);
+            future3.get(); // Wait for task 3 to complete
+        } catch (Exception e) {
+            System.out.println("An exception occurred: " + e.getMessage());
+        } finally {
+            // Shutdown the executor
+            executor.shutdown();
+        }
+    }
+}
