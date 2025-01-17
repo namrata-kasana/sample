@@ -1,0 +1,44 @@
+import com.tibco.tibjms.TibjmsConnectionFactory;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import javax.jms.Connection;
+import javax.jms.JMSException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+
+public class TibcoJmsConnectionProviderTest {
+
+    @Test
+    public void testGetConnection() throws JMSException {
+        // Mock TibjmsConnectionFactory and Connection
+        TibjmsConnectionFactory mockFactory = mock(TibjmsConnectionFactory.class);
+        Connection mockConnection = mock(Connection.class);
+
+        // Stub the createConnection method
+        when(mockFactory.createConnection("testUser", "testPassword")).thenReturn(mockConnection);
+
+        // Test inputs
+        String serverUrl = "tcp://localhost:7222";
+        String user = "testUser";
+        String password = "testPassword";
+
+        // Override factory creation in provider
+        TibcoJmsConnectionProvider provider = new TibcoJmsConnectionProvider(user, password, serverUrl) {
+            @Override
+            public Connection getConnection() throws JMSException {
+                return mockFactory.createConnection(user, password);
+            }
+        };
+
+        // Call the method under test
+        Connection connection = provider.getConnection();
+
+        // Verify that createConnection was called with the correct parameters
+        verify(mockFactory).createConnection(user, password);
+
+        // Assert that the returned connection is the mock connection
+        assertEquals(mockConnection, connection);
+    }
+}
