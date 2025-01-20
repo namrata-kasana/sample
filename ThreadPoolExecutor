@@ -155,3 +155,56 @@ Graceful Shutdown: The @PreDestroy annotation ensures the ThreadPoolExecutor is 
 Summary:
 By using ThreadPoolExecutor, you have more control over how threads are managed, including configuring the core pool size, maximum pool size, and the behavior when tasks are rejected. The tasks are submitted to the executor, and you can track their completion using Future<?>. The application will handle graceful shutdown automatically, and Kubernetes will provide a termination grace period for pod termination.
 
+##long running 
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+public class LongRunningTaskManager {
+
+    private final ExecutorService threadPoolExecutor;
+
+    public LongRunningTaskManager(int poolSize) {
+        this.threadPoolExecutor = Executors.newFixedThreadPool(poolSize);
+    }
+
+    public Future<?> runRunnableTask(int taskId) {
+        return CompletableFuture.runAsync(() -> {
+            System.out.println("Runnable task " + taskId + " has started...");
+            try {
+                while (true) {
+                    // Simulate long-running task
+                    System.out.println("Runnable task " + taskId + " is running...");
+                    Thread.sleep(1000); // Pause for 1 second
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Handle interruption
+                System.out.println("Runnable task " + taskId + " has been interrupted and stopped.");
+            }
+        }, threadPoolExecutor);
+    }
+
+    public void shutdown() {
+        threadPoolExecutor.shutdown();
+        System.out.println("Executor service is shutting down...");
+    }
+
+    public static void main(String[] args) {
+        LongRunningTaskManager manager = new LongRunningTaskManager(2);
+
+        // Start a long-running task
+        manager.runRunnableTask(1);
+
+        // Let the task run for a while
+        try {
+            Thread.sleep(10000); // Let the task run for 10 seconds
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Shutdown the thread pool (optional if the task needs to run indefinitely)
+        manager.shutdown();
+    }
+}
