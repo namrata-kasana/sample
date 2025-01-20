@@ -30,3 +30,52 @@ public class Main {
         }
     }
 }
+
+
+##running executor pool 
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
+public class ThreadPoolExample {
+
+    public static void main(String[] args) {
+        // Create a fixed thread pool with a single thread
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+        // Submit a long-running task
+        executorService.submit(() -> {
+            try {
+                while (true) {
+                    System.out.println("Thread is running...");
+                    // Simulate some work
+                    TimeUnit.SECONDS.sleep(1);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore interrupted status
+                System.out.println("Thread interrupted, stopping...");
+            }
+        });
+
+        // Keep the application running for a while (simulate the main thread's work)
+        try {
+            TimeUnit.SECONDS.sleep(10); // Let the thread run for 10 seconds
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Shut down the ExecutorService gracefully
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+        }
+
+        System.out.println("ExecutorService has been shut down.");
+    }
+}
+
